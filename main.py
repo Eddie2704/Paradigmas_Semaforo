@@ -2,8 +2,10 @@ import pygame
 from mapa import dibujar_mapa
 from semaforo import Semaforo
 from semaforo_peatonal import SemaforoPeatonal
-# Importamos tu clase Vehiculo desde tu archivo externo 'vehiculo.py'
 from vehiculo import Vehiculo  
+from peaton import Peaton  # Importamos tu nueva clase Peaton
+from controlador import ControladorTrafico 
+
 
 # CONFIGURACIÓN INICIAL DE PYGAME
 pygame.init()
@@ -11,34 +13,39 @@ screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Simulador de Semáforo Inteligente")
 clock = pygame.time.Clock()
 
-#SEMÁFOROS
+# SEMÁFOROS DE AUTOS ORIGINALES
 semaforos_autos = [
-    Semaforo(410, 220, "horizontal"),  # índice 0: norte (controla autos que vienen del norte al sur)
-    Semaforo(350, 360, "horizontal"),  # índice 1: sur (controla autos que vienen del sur al norte)
-    Semaforo(330, 250, "vertical"),    # índice 2: oeste (controla autos que vienen del oeste al este)
-    Semaforo(450, 310, "vertical")     # índice 3: este (controla autos que vienen del este al oeste)
+    Semaforo(410, 220, "horizontal"),  # índice 0: norte
+    Semaforo(350, 360, "horizontal"),  # índice 1: sur
+    Semaforo(330, 250, "vertical"),    # índice 2: oeste
+    Semaforo(450, 310, "vertical")     # índice 3: este
 ]
 
-# Semáforos peatonales 
+# Semáforos peatonales
 semaforos_peatonales = [
-    SemaforoPeatonal(320, 220),  # arriba-izquierda
-    SemaforoPeatonal(470, 220),  # arriba-derecha
-    SemaforoPeatonal(320, 365),  # abajo-izquierda
-    SemaforoPeatonal(470, 365)   # abajo-derecha
+    SemaforoPeatonal(320, 220),  # índice 0: arriba-izquierda (Cruce Norte)
+    SemaforoPeatonal(470, 220),  # índice 1: arriba-derecha (Cruce Este)
+    SemaforoPeatonal(320, 365),  # índice 2: abajo-izquierda (Cruce Sur)
+    SemaforoPeatonal(470, 365)   # índice 3: abajo-derecha (Cruce Oeste)
 ]
 
-# INICIALIZACIÓN DE VEHÍCULOS (Esperando en las filas)
+# Listas de entidades activas
+vehiculos = []
+peatones = []  # Lista para almacenar los peatones en pantalla
 
-# Creamos autos que inician su recorrido desde los extremos de la pantalla
-# y se detendrán ordenadamente en sus respectivas líneas de parada al estar en rojo.
-vehiculos = [
-    Vehiculo("NORTE"),  # Fila SUR: viene de abajo (y=600) y sube hacia el norte
-    Vehiculo("SUR"),    # Fila NORTE: viene de arriba (y=-40) y baja hacia el sur
-    Vehiculo("ESTE"),   # Fila OESTE: viene de la izquierda (x=-40) y va hacia el este
-    Vehiculo("OESTE")   # Fila ESTE: viene de la derecha (x=800) y va hacia el oeste
-]
+cerebro_trafico = ControladorTrafico()
 
-# BUCLE PRINCIPAL DE LA SIMULACIÓN
+entorno = {
+    "solicitud_peaton": False,
+    "ambulancia_detectada": None,
+    "es_de_madrugada": False
+}
+
+# Banderas para comandos combinados de teclado
+modo_ambulancia = False
+modo_peaton = False  # Detecta si se presionó la tecla 'H' previamente
+
+# BUCLE PRINCIPAL
 running = True
 while running:
     for event in pygame.event.get():
@@ -46,35 +53,75 @@ while running:
             running = False
             
         if event.type == pygame.KEYDOWN:
-            # Tecla "p" alterna manualmente los semáforos peatonales
-            if event.key == pygame.K_p:  
-                for sp in semaforos_peatonales:
-                    sp.cambiar_estado()
-                    
-            # Tecla "c" alterna los semáforos de autos para darles paso libre
-            if event.key == pygame.K_c:  
-                for s in semaforos_autos:
-                    s.cambiar_estado()
+            # --- PREPARAR COMANDO COMBINADO PEATÓN ('H') ---
+            if event.key == pygame.K_h:
+                modo_peaton = True
+                modo_ambulancia = False
+                print("¡Modo Peatón activo! Presiona del 1 al 4 para elegir su cruce...")
 
-    # 1. Dibujar el mapa (Calles, cebras, césped y flechas direccionales)
+            # PREPARAR COMANDO COMBINADO AMBULANCIA ('A')
+            elif event.key == pygame.K_a:
+                modo_ambulancia = True
+                modo_peaton = False
+                print("Modo Ambulancia activo! Presiona del 1 al 4 para elegir su calle...")
+
+            # --- CONTROL DE INYECCIÓN DE ENTIDADES (1 al 4) ---
+            elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
+                direcciones = {pygame.K_1: "NORTE", pygame.K_2: "SUR", pygame.K_3: "ESTE", pygame.K_4: "OESTE"}
+                dir_seleccionada = direcciones[event.key]
+
+                if modo_peaton:
+                    # Inyectar un peatón en la acera del cruce seleccionado
+                    peatones.append(Peaton(dir_seleccionada))
+                    modo_peaton = False
+                    print(f"Peatón generado esperando en el cruce: {dir_seleccionada}")
+                elif modo_ambulancia:
+                    vehiculos.append(Vehiculo(dir_seleccionada, tipo="AMBULANCIA"))
+                    entorno["ambulancia_detectada"] = dir_seleccionada
+                    modo_ambulancia = False
+                    print(f"Ambulancia desplegada en calle: {dir_seleccionada}.")
+                else:
+                    # Inyección normal de vehículos
+                    vehiculos.append(Vehiculo(dir_seleccionada, tipo="NORMAL"))
+
+            # --- BOTÓN DE SOLICITUD PEATONAL COMPLETO ('P') ---
+            if event.key == pygame.K_p:
+                entorno["solicitud_peaton"] = True
+                print("Botón peatonal presionado. El cerebro priorizará la fase de cruce...")
+
+            # --- CANCELAR EMERGENCIAS ('X') o ACTIVAR MADRUGADA ('M') ---
+            if event.key == pygame.K_x:
+                entorno["ambulancia_detectada"] = None
+            if event.key == pygame.K_m:
+                entorno["es_de_madrugada"] = not entorno["es_de_madrugada"]
+
+    # 1. Dibujar mapa base
     dibujar_mapa(screen)
 
-    # 2. Actualizar lógica de movimiento, detección de colisiones y renderizado de autos
-    for auto in vehiculos:
-        # Pasamos tanto la lista de semáforos como la lista de los demás autos 
-        # para que calcule el frenado en semáforo o el frenado en fila automática.
+    # 2. Lógica del semáforo inteligente
+    cerebro_trafico.procesar_inteligencia(semaforos_autos, semaforos_peatonales, vehiculos, entorno)
+
+    # 3. Actualizar y dibujar Peatones
+    for humano in peatones[:]:
+        humano.actualizar(semaforos_peatonales)
+        humano.dibujar(screen)
+        # Limpieza: si el peatón ya terminó de cruzar toda la calle y salió del rango, se elimina
+        if humano.x > 500 and (humano.cruce == "NORTE" or humano.cruce == "SUR"):
+            peatones.remove(humano)
+        elif humano.y > 400 and (humano.cruce == "OESTE" or humano.cruce == "ESTE"):
+            peatones.remove(humano)
+
+    # 4. Actualizar y dibujar Vehículos
+    for auto in vehiculos[:]:
         auto.actualizar(semaforos_autos, vehiculos)  
         auto.dibujar(screen)
+        if auto.x < -50 or auto.x > 850 or auto.y < -50 or auto.y > 650:
+            vehiculos.remove(auto)
 
-    # 3. Dibujar semáforos viales para automóviles
-    for s in semaforos_autos:
-        s.dibujar(screen)
+    # 5. Dibujar semáforos viales y peatonales
+    for s in semaforos_autos: s.dibujar(screen)
+    for sp in semaforos_peatonales: sp.dibujar(screen)
 
-    # 4. Dibujar semáforos para peatones
-    for sp in semaforos_peatonales:
-        sp.dibujar(screen)
-
-    # Actualización de pantalla y control de FPS (60 fotogramas por segundo)
     pygame.display.flip()
     clock.tick(60)
 
