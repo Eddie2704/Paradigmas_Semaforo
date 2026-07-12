@@ -1,4 +1,3 @@
-# vehiculo.py
 import pygame
 import random
 

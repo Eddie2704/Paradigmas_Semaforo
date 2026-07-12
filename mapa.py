@@ -90,4 +90,41 @@ def dibujar_mapa(screen):
     # Carril Inferior: Ahora VA HACIA LA DERECHA (ESTE) 
     pygame.draw.line(screen, blanco_flecha, (560, 325), (590, 325), 4)
     pygame.draw.polygon(screen, blanco_flecha, [(585, 320), (585, 330), (595, 325)])
-    
+# =========================================================================
+    # 6. NUEVO: DISEÑO ESTILIZADO DE HARDWARE VIAL (SENSORES Y ANTENAS)
+    # =========================================================================
+    COLOR_LAZO_CONTOUNRO = (120, 120, 120)  # Gris asfalto cortado para el lazo magnético
+    COLOR_POSTE = (180, 180, 180)          # Gris metálico para la estructura de la antena
+    COLOR_ANTENA_RFID = (0, 102, 204)      # Azul tecnológico para el receptor RFID
+
+    # --- CALLE NORTE (Entrada superior) ---
+    # Sensor de flujo en el suelo (Lazo magnético calado en el carril izquierdo)
+    pygame.draw.rect(screen, COLOR_LAZO_CONTOUNRO, (358, 205, 38, 15), 1)
+    pygame.draw.line(screen, COLOR_LAZO_CONTOUNRO, (377, 205), (377, 220), 1)
+    # Antena RFID en la acera (Al par de la calle, a la izquierda)
+    pygame.draw.rect(screen, COLOR_POSTE, (342, 20, 5, 12))  # Base/Poste
+    pygame.draw.circle(screen, COLOR_ANTENA_RFID, (344, 15), 5)  # Domo Lector
+
+    # --- CALLE SUR (Entrada inferior) ---
+    # Sensor de flujo en el suelo (Lazo magnético calado en el carril derecho)
+    pygame.draw.rect(screen, COLOR_LAZO_CONTOUNRO, (404, 380, 38, 15), 1)
+    pygame.draw.line(screen, COLOR_LAZO_CONTOUNRO, (423, 380), (423, 395), 1)
+    # Antena RFID en la acera (Al par de la calle, a la derecha)
+    pygame.draw.rect(screen, COLOR_POSTE, (453, 570, 5, 12)) # Base/Poste
+    pygame.draw.circle(screen, COLOR_ANTENA_RFID, (455, 565), 5) # Domo Lector
+
+    # --- CALLE ESTE (Entrada derecha) ---
+    # Sensor de flujo en el suelo (Lazo magnético calado en el carril superior)
+    pygame.draw.rect(screen, COLOR_LAZO_CONTOUNRO, (475, 253, 15, 38), 1)
+    pygame.draw.line(screen, COLOR_LAZO_CONTOUNRO, (475, 272), (490, 272), 1)
+    # Antena RFID en la acera (Al par de la calle, arriba)
+    pygame.draw.rect(screen, COLOR_POSTE, (770, 238, 12, 5)) # Base/Poste
+    pygame.draw.circle(screen, COLOR_ANTENA_RFID, (765, 240), 5) # Domo Lector
+
+    # --- CALLE OESTE (Entrada izquierda) ---
+    # Sensor de flujo en el suelo (Lazo magnético calado en el carril inferior)
+    pygame.draw.rect(screen, COLOR_LAZO_CONTOUNRO, (310, 309, 15, 38), 1)
+    pygame.draw.line(screen, COLOR_LAZO_CONTOUNRO, (310, 328), (325, 328), 1)
+    # Antena RFID en la acera (Al par de la calle, abajo)
+    pygame.draw.rect(screen, COLOR_POSTE, (20, 357, 12, 5))  # Base/Poste
+    pygame.draw.circle(screen, COLOR_ANTENA_RFID, (35, 359), 5)  # Domo Lector

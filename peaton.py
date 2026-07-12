@@ -1,4 +1,3 @@
-# peaton.py
 import pygame
 import random
 

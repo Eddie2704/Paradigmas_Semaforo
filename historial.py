@@ -1,5 +1,3 @@
-# historial.py
-
 class HistorialTrafico:
     def __init__(self):
         # Conteo acumulado de vehículos que cruzaron en el periodo actual
@@ -36,10 +34,6 @@ class HistorialTrafico:
             
             total_flujo = flujo_ns + flujo_eo
             
-            print("\n" + "="*40)
-            print("[HISTORIAL] Analizando datos de los últimos 4 ciclos...")
-            print(f" -> Flujo Eje Norte/Sur: {flujo_ns} vehículos")
-            print(f" -> Flujo Eje Este/Oeste: {flujo_eo} vehicles")
             
             # Tiempos por defecto
             nuevo_tiempo_ns = tiempo_verde_base
@@ -56,11 +50,6 @@ class HistorialTrafico:
                 # Asignar tiempos con límites mínimos (3s) y máximos (9s) para evitar bloqueos
                 nuevo_tiempo_ns = max(3000, min(9000, int(tiempo_total_disponible * proporcion_ns)))
                 nuevo_tiempo_eo = max(3000, min(9000, int(tiempo_total_disponible * proporcion_eo)))
-            
-            print(f"[ALGORITMO] Nuevos tiempos calculados:")
-            print(f" -> Verde Norte/Sur: {nuevo_tiempo_ns / 1000}s")
-            print(f" -> Verde Este/Oeste: {nuevo_tiempo_eo / 1000}s")
-            print("="*40 + "\n")
             
             # Reiniciar contadores del intervalo de datos
             self.vehiculos_por_calle = {k: 0 for k in self.vehiculos_por_calle}
