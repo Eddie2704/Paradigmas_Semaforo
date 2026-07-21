@@ -1,4 +1,6 @@
 import pygame
+import random
+from servidor import iniciar, leer
 from mapa import dibujar_mapa
 from semaforo import Semaforo
 from semaforo_peatonal import SemaforoPeatonal
@@ -9,6 +11,7 @@ from interfaz_de_datos import InterfazDatos # NUEVO IMPORT
 
 # CONFIGURACIÓN INICIAL DE PYGAME
 pygame.init()
+iniciar()
 # Configuración de la ventana
 screen = pygame.display.set_mode((1150, 600))
 pygame.display.set_caption("Simulador Semaforo Inteligente")
@@ -30,6 +33,7 @@ vehiculos = []
 peatones = []  
 cerebro_trafico = ControladorTrafico()
 monitor_interfaz = InterfazDatos() # INSTANCIA DE LA NUEVA INTERFAZ
+#esp = ESP32("COM5")
 
 entorno = {
     "solicitud_peaton": False,
@@ -44,6 +48,39 @@ mostrar_panel_datos = True  # Inicia visible para mostrar el diseño analítico
 
 running = True
 while running:
+    # 1. Leer el mensaje del servidor Flask
+    mensaje_crudo = leer()
+    mensaje = mensaje_crudo.strip() if mensaje_crudo else None
+
+    if mensaje:
+        print(f"Simulador procesando: {mensaje}")
+        
+        # Procesar los comandos del semáforo inteligente
+        if mensaje == "AUTO_NORTE":
+            vehiculos.append(Vehiculo("NORTE"))
+        elif mensaje == "AUTO_SUR":
+            vehiculos.append(Vehiculo("SUR"))
+        elif mensaje == "AUTO_ESTE":
+            vehiculos.append(Vehiculo("ESTE"))
+        elif mensaje == "AUTO_OESTE":
+            vehiculos.append(Vehiculo("OESTE"))
+        elif mensaje == "AMBULANCIA":
+            vehiculos.append(Vehiculo("NORTE", tipo="AMBULANCIA"))
+        elif mensaje == "PEATON":
+                entorno["solicitud_peaton"] = True
+
+                direccion = random.choice([
+                "NORTE",
+                "SUR",
+                "ESTE",
+                "OESTE"
+                ])
+                peatones.append(Peaton(direccion))
+                print(f"Peatón generado en {direccion}")
+        elif mensaje == "MADRUGADA":
+            entorno["es_de_madrugada"] = not entorno["es_de_madrugada"]
+
+    #hf---------
     
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
