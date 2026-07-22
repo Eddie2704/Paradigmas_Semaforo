@@ -1,15 +1,15 @@
 import pygame
+import lector_mqtt
 from mapa import dibujar_mapa
 from semaforo import Semaforo
 from semaforo_peatonal import SemaforoPeatonal
 from vehiculo import Vehiculo  
 from peaton import Peaton  
 from controlador import ControladorTrafico 
-from interfaz_de_datos import InterfazDatos # NUEVO IMPORT
+from interfaz_de_datos import InterfazDatos 
 
 # CONFIGURACIÓN INICIAL DE PYGAME
 pygame.init()
-# Configuración de la ventana
 screen = pygame.display.set_mode((1150, 600))
 pygame.display.set_caption("Simulador Semaforo Inteligente")
 clock = pygame.time.Clock()
@@ -29,7 +29,7 @@ semaforos_peatonales = [
 vehiculos = []
 peatones = []  
 cerebro_trafico = ControladorTrafico()
-monitor_interfaz = InterfazDatos() # INSTANCIA DE LA NUEVA INTERFAZ
+monitor_interfaz = InterfazDatos() 
 
 entorno = {
     "solicitud_peaton": False,
@@ -40,11 +40,20 @@ entorno = {
 modo_ambulancia = False
 modo_peaton = False  
 simulacion_activa = False  
-mostrar_panel_datos = True  # Inicia visible para mostrar el diseño analítico
+mostrar_panel_datos = True  
+
+# Inicializamos la red MQTT
+lector_mqtt.iniciar()
 
 running = True
 while running:
     
+    # Esta variable centralizará cualquier estímulo del frame (ya sea de tecla o de Wokwi)
+    estimulo_recibido = None
+
+    # =====================================================================
+    # 1. ENTRADA LOCAL: CAPTURA DE TECLADO
+    # =====================================================================
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -63,38 +72,79 @@ while running:
                 modo_ambulancia = True
                 modo_peaton = False
 
+            # Teclas de dirección rápidas
             elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4]:
-                direcciones = {pygame.K_1: "NORTE", pygame.K_2: "SUR", pygame.K_3: "ESTE", pygame.K_4: "OESTE"}
-                dir_seleccionada = direcciones[event.key]
+                direcciones = {pygame.K_1: "AUTO_NORTE", pygame.K_2: "AUTO_SUR", pygame.K_3: "AUTO_ESTE", pygame.K_4: "AUTO_OESTE"}
+                estimulo_recibido = direcciones[event.key]
 
-                if modo_peaton:
-                    peatones.append(Peaton(dir_seleccionada))
-                    modo_peaton = False
-                elif modo_ambulancia:
-                    vehiculos.append(Vehiculo(dir_seleccionada, tipo="AMBULANCIA"))
-                    modo_ambulancia = False
-                else:
-                    vehiculos.append(Vehiculo(dir_seleccionada, tipo="NORMAL"))
+            elif event.key == pygame.K_p:
+                estimulo_recibido = "PEATON"
+            elif event.key == pygame.K_m:
+                estimulo_recibido = "MADRUGADA"
 
-            if event.key == pygame.K_p:
-                entorno["solicitud_peaton"] = True
-            if event.key == pygame.K_m:
-                entorno["es_de_madrugada"] = not entorno["es_de_madrugada"]
+    # =====================================================================
+    # 2. ENTRADA REMOTA: CAPTURA DE WOKWI (MQTT)
+    # =====================================================================
+    evento_mqtt = lector_mqtt.leer()
+    if evento_mqtt:
+        estimulo_recibido = evento_mqtt
 
-    # 1. Limpiar pantalla completa y dibujar el mapa en su zona (0 a 800)
-    # Rellenamos de negro el fondo de la zona extra para que no se dupliquen imágenes
+    # =====================================================================
+    # 3. PROCESAMIENTO UNIFICADO DE LOS ESTÍMULOS
+    # =====================================================================
+    if estimulo_recibido:
+        print(f"[EVENTO] Procesando: {estimulo_recibido}")
+        
+        # Lógica para Autos Normales (según botones de Wokwi o teclas 1,2,3,4)
+        if estimulo_recibido == "AUTO_NORTE":
+            if modo_peaton: peatones.append(Peaton("NORTE")); modo_peaton = False
+            elif modo_ambulancia: vehiculos.append(Vehiculo("NORTE", tipo="AMBULANCIA")); modo_ambulancia = False
+            else: vehiculos.append(Vehiculo("NORTE", tipo="NORMAL"))
+            
+        elif estimulo_recibido == "AUTO_SUR":
+            if modo_peaton: peatones.append(Peaton("SUR")); modo_peaton = False
+            elif modo_ambulancia: vehiculos.append(Vehiculo("SUR", tipo="AMBULANCIA")); modo_ambulancia = False
+            else: vehiculos.append(Vehiculo("SUR", tipo="NORMAL"))
+            
+        elif estimulo_recibido == "AUTO_ESTE":
+            if modo_peaton: peatones.append(Peaton("ESTE")); modo_peaton = False
+            elif modo_ambulancia: vehiculos.append(Vehiculo("ESTE", tipo="AMBULANCIA")); modo_ambulancia = False
+            else: vehiculos.append(Vehiculo("ESTE", tipo="NORMAL"))
+            
+        elif estimulo_recibido == "AUTO_OESTE":
+            if modo_peaton: peatones.append(Peaton("OESTE")); modo_peaton = False
+            elif modo_ambulancia: vehiculos.append(Vehiculo("OESTE", tipo="AMBULANCIA")); modo_ambulancia = False
+            else: vehiculos.append(Vehiculo("OESTE", tipo="NORMAL"))
+
+        # Lógica para los botones de estado del sistema
+        elif estimulo_recibido == "PEATON":
+            entorno["solicitud_peaton"] = True
+            
+        elif estimulo_recibido == "MADRUGADA":
+            entorno["es_de_madrugada"] = not entorno["es_de_madrugada"]
+            
+        elif estimulo_recibido == "AMBULANCIA":
+            # Si se presiona el botón de AMBULANCIA en Wokwi, activa el modo de preparación
+            # para que la siguiente dirección numérica que presiones (o el siguiente botón de auto)
+            # genere una ambulancia real en esa calle.
+            modo_ambulancia = True
+            modo_peaton = False
+
+    # =====================================================================
+    # 4. RENDERIZADO Y DIBUJO DE PYGAME (Se mantiene igual de limpio)
+    # =====================================================================
     screen.fill((10, 10, 12)) 
     dibujar_mapa(screen)
 
     fase_activa, t_restante = 0, 0
 
-    # 2. Lógicas y actualizaciones
     if simulacion_activa:
         fase_activa, t_restante = cerebro_trafico.procesar_inteligencia(semaforos_autos, semaforos_peatonales, vehiculos, entorno)
         
         for humano in peatones[:]:
             humano.actualizar(semaforos_peatonales)
-            if humano.x > 600 or humano.y > 500: peatones.remove(humano)
+            if humano.x < -20 or humano.x > 820 or humano.y < -20 or humano.y > 620: 
+                peatones.remove(humano)
             
         for auto in vehiculos[:]:
             auto.actualizar(semaforos_autos, vehiculos)  
@@ -105,11 +155,9 @@ while running:
         for auto in vehiculos:
             auto.actualizar(semaforos_autos, vehiculos)
 
-    # 3. Dibujo de Entidades viales
     for humano in peatones: humano.dibujar(screen)
     for auto in vehiculos: auto.dibujar(screen)
 
-    # 4. Dibujar Semáforos
     for i, s in enumerate(semaforos_autos):
         if simulacion_activa and ((fase_activa == 0 and i in [0, 1]) or (fase_activa == 1 and i in [2, 3])):
             s.dibujar(screen, tiempo_restante=t_restante)
@@ -119,8 +167,6 @@ while running:
     for sp in semaforos_peatonales: 
         sp.dibujar(screen)
 
-    
-    # 5. DIBUJAR PANTALLA DE MONITOREO DE DATOS
     if mostrar_panel_datos:
         monitor_interfaz.dibujar_tabla(screen, cerebro_trafico.historial, cerebro_trafico)
 
