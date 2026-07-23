@@ -51,9 +51,8 @@ while running:
     # Esta variable centralizará cualquier estímulo del frame (ya sea de tecla o de Wokwi)
     estimulo_recibido = None
 
-    # =====================================================================
     # 1. ENTRADA LOCAL: CAPTURA DE TECLADO
-    # =====================================================================
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -82,21 +81,34 @@ while running:
             elif event.key == pygame.K_m:
                 estimulo_recibido = "MADRUGADA"
 
-    # =====================================================================
     # 2. ENTRADA REMOTA: CAPTURA DE WOKWI (MQTT)
-    # =====================================================================
+    
     evento_mqtt = lector_mqtt.leer()
     if evento_mqtt:
         estimulo_recibido = evento_mqtt
 
-    # =====================================================================
     # 3. PROCESAMIENTO UNIFICADO DE LOS ESTÍMULOS
-    # =====================================================================
     if estimulo_recibido:
         print(f"[EVENTO] Procesando: {estimulo_recibido}")
         
-        # Lógica para Autos Normales (según botones de Wokwi o teclas 1,2,3,4)
-        if estimulo_recibido == "AUTO_NORTE":
+        # Activar los modos preparatorios desde Wokwi o teclado
+        if estimulo_recibido == "MODO_PEATON":
+            modo_peaton = True
+            modo_ambulancia = False
+            
+        elif estimulo_recibido == "AMBULANCIA":
+            modo_ambulancia = True
+            modo_peaton = False
+            
+        elif estimulo_recibido == "SOLICITUD_SEMAFORO_PEATON" or estimulo_recibido == "PEATON":
+            # El botón de solicitar cruce (Pin 17) o la tecla 'P' activan la inteligencia de tráfico
+            entorno["solicitud_peaton"] = True
+            
+        elif estimulo_recibido == "MADRUGADA":
+            entorno["es_de_madrugada"] = not entorno["es_de_madrugada"]
+
+        # Lógica de direcciones (Norte, Sur, Este, Oeste)
+        elif estimulo_recibido == "AUTO_NORTE":
             if modo_peaton: peatones.append(Peaton("NORTE")); modo_peaton = False
             elif modo_ambulancia: vehiculos.append(Vehiculo("NORTE", tipo="AMBULANCIA")); modo_ambulancia = False
             else: vehiculos.append(Vehiculo("NORTE", tipo="NORMAL"))
@@ -115,20 +127,6 @@ while running:
             if modo_peaton: peatones.append(Peaton("OESTE")); modo_peaton = False
             elif modo_ambulancia: vehiculos.append(Vehiculo("OESTE", tipo="AMBULANCIA")); modo_ambulancia = False
             else: vehiculos.append(Vehiculo("OESTE", tipo="NORMAL"))
-
-        # Lógica para los botones de estado del sistema
-        elif estimulo_recibido == "PEATON":
-            entorno["solicitud_peaton"] = True
-            
-        elif estimulo_recibido == "MADRUGADA":
-            entorno["es_de_madrugada"] = not entorno["es_de_madrugada"]
-            
-        elif estimulo_recibido == "AMBULANCIA":
-            # Si se presiona el botón de AMBULANCIA en Wokwi, activa el modo de preparación
-            # para que la siguiente dirección numérica que presiones (o el siguiente botón de auto)
-            # genere una ambulancia real en esa calle.
-            modo_ambulancia = True
-            modo_peaton = False
 
     # =====================================================================
     # 4. RENDERIZADO Y DIBUJO DE PYGAME (Se mantiene igual de limpio)
