@@ -3,80 +3,82 @@ import pygame
 class InterfazDatos:
     def __init__(self):
         pygame.font.init()
-        self.fuente_titulo = pygame.font.SysFont("Courier New", 16, bold=True)
-        self.fuente_texto = pygame.font.SysFont("Courier New", 14)
-        self.fuente_bold = pygame.font.SysFont("Courier New", 14, bold=True)
+        # Fuentes monoespaciadas ideales para datos estructurados
+        self.fuente_titulo = pygame.font.SysFont("Courier New", 14, bold=True)
+        self.fuente_texto = pygame.font.SysFont("Courier New", 12)
+        self.fuente_bold = pygame.font.SysFont("Courier New", 12, bold=True)
         
-        # Posición base del panel analítico (Zona lateral derecha)
-        self.x_panel = 820
-        self.y_panel = 20
-        self.ancho_panel = 310
+        # --- PANEL DERECHO INTEGRADO ---
+        # Se ubica exactamente donde termina el mapa (X: 850) hasta el final (1150)
+        self.x_panel = 850
+        self.y_panel = 0
+        self.ancho_panel = 300
+        self.alto_panel = 700 # Ocupa todo el alto de la ventana
 
     def dibujar_tabla(self, screen, historial, controlador):
-        # 1. Fondo del panel analítico
-        pygame.draw.rect(screen, (20, 25, 30), (self.x_panel, self.y_panel, self.ancho_panel, 560))
-        pygame.draw.rect(screen, (50, 60, 70), (self.x_panel, self.y_panel, self.ancho_panel, 560), 2)
-
-        # 2. Título del Panel
-        titulo = self.fuente_titulo.render("MONITOR DE SEMÁFOROS", True, (0, 255, 255))
-        screen.blit(titulo, (self.x_panel + 15, self.y_panel + 15))
+        """Dibuja el panel analítico integrado en el extremo derecho de la pantalla"""
         
-        subtitulo = self.fuente_texto.render("Análisis de Flujo e Historial", True, (150, 150, 150))
-        screen.blit(subtitulo, (self.x_panel + 15, self.y_panel + 35))
+        # 1. Fondo del panel lateral (Gris oscuro/Antracita para estilo Dark Mode)
+        pygame.draw.rect(screen, (24, 24, 24), (self.x_panel, self.y_panel, self.ancho_panel, self.alto_panel))
         
-        pygame.draw.line(screen, (50, 60, 70), (self.x_panel + 15, self.y_panel + 55), (self.x_panel + self.ancho_panel - 15, self.y_panel + 55), 2)
-
-        # 3. Datos del Ciclo Actual
-        ciclo_txt = self.fuente_bold.render(f"Cambio de Ciclo: {historial.contador_cambios_fase} / {historial.limite_cambios}", True, (255, 215, 0))
-        screen.blit(ciclo_txt, (self.x_panel + 15, self.y_panel + 70))
-
-        #TABLA 1: FLUJO DE VEHÍCULOS POR CALLE (PERIODO ACTUAL)
-        y_tabla1 = self.y_panel + 110
+        # 2. Línea divisoria vertical entre la simulación y los datos
+        pygame.draw.line(screen, (60, 60, 60), (self.x_panel, 0), (self.x_panel, self.alto_panel), 2)
         
-        # Encabezados de la tabla
-        screen.blit(self.fuente_bold.render("Calle", True, (200, 200, 200)), (self.x_panel + 20, y_tabla1))
-        screen.blit(self.fuente_bold.render("Autos", True, (200, 200, 200)), (self.x_panel + 120, y_tabla1))
-        screen.blit(self.fuente_bold.render("Total Acum.", True, (200, 200, 200)), (self.x_panel + 220, y_tabla1))
+        # 3. Título del Panel
+        txt_titulo = self.fuente_titulo.render("HISTORIAL DE TRÁFICO", True, (0, 255, 255))
+        screen.blit(txt_titulo, (self.x_panel + 20, 30))
         
-        pygame.draw.line(screen, (70, 80, 90), (self.x_panel + 15, y_tabla1 + 20), (self.x_panel + self.ancho_panel - 15, y_tabla1 + 20), 1)
+        # Subtítulo o estado del sistema
+        txt_sub = self.fuente_texto.render("Estado: Monitoreando...", True, (150, 150, 150))
+        screen.blit(txt_sub, (self.x_panel + 20, 55))
+        
+        # 4. Tabla de datos por Intersección
+        y_offset = 110
+        t_verde_seg = controlador.tiempo_verde_base / 1000
+        
+        # Intentamos recuperar de forma segura el diccionario del historial
+        dict_origen = getattr(historial, "datos_cruce", getattr(historial, "historial", getattr(historial, "registro", {})))
+        total_global = 0
 
-        # Filas de datos
-        calles = ["NORTE", "SUR", "ESTE", "OESTE"]
-        for i, calle in enumerate(calles):
-            y_fila = y_tabla1 + 28 + (i * 22)
+        # Dibujar cabecera de la mini-tabla
+        header_int = self.fuente_bold.render("Intersección", True, (200, 200, 200))
+        header_veh = self.fuente_bold.render("Vehículos", True, (200, 200, 200))
+        screen.blit(header_int, (self.x_panel + 20, y_offset))
+        screen.blit(header_veh, (self.x_panel + 180, y_offset))
+        
+        pygame.draw.line(screen, (80, 80, 80), (self.x_panel + 20, y_offset + 18), (self.x_panel + 280, y_offset + 18), 1)
+        y_offset += 30
+
+        # Renderizar las filas para las 4 intersecciones
+        for idx in range(4):
+            autos_cruzados = 0
+            if isinstance(dict_origen, dict):
+                sub_dict = dict_origen.get(idx, dict_origen.get(str(idx), {}))
+                if isinstance(sub_dict, dict):
+                    autos_cruzados = sub_dict.get("vehiculos_pasados", 0)
             
-            # Valores desde historial.py
-            autos_ciclo = str(historial.vehiculos_por_calle[calle])
-            autos_totales = str(historial.historico_total[calle])
+            total_global += autos_cruzados
             
-            screen.blit(self.fuente_texto.render(calle, True, (255, 255, 255)), (self.x_panel + 20, y_fila))
-            screen.blit(self.fuente_texto.render(autos_ciclo, True, (100, 255, 100)), (self.x_panel + 140, y_fila))
-            screen.blit(self.fuente_texto.render(autos_totales, True, (150, 150, 255)), (self.x_panel + 240, y_fila))
+            # Dibujar textos de la fila
+            txt_col1 = self.fuente_texto.render(f"Cruze #{idx + 1}", True, (255, 255, 255))
+            txt_col2 = self.fuente_texto.render(f"{autos_cruzados} vh", True, (152, 195, 121)) # Verde suave
             
-        # TABLA 2: TIEMPOS DINÁMICOS ASIGNADOS AL SEMÁFORO
-        y_tabla2 = y_tabla1 + 130
-        pygame.draw.line(screen, (50, 60, 70), (self.x_panel + 15, y_tabla2), (self.x_panel + self.ancho_panel - 15, y_tabla2), 2)
+            screen.blit(txt_col1, (self.x_panel + 20, y_offset))
+            screen.blit(txt_col2, (self.x_panel + 180, y_offset))
+            y_offset += 25
+            
+        # 5. Sección de Resumen Global e Inteligencia
+        y_offset += 20
+        pygame.draw.rect(screen, (34, 34, 34), (self.x_panel + 15, y_offset, self.ancho_panel - 30, 120), border_radius=5)
         
-        lbl_tiempos = self.fuente_titulo.render("TIEMPOS OPTIMIZADOS", True, (0, 255, 255))
-        screen.blit(lbl_tiempos, (self.x_panel + 15, y_tabla2 + 15))
-
-        # Mostrar los milisegundos calculados pasados a segundos
-        t_ns = controlador.tiempo_verde_fase[0] / 1000
-        t_eo = controlador.tiempo_verde_fase[1] / 1000
-
-        y_valores = y_tabla2 + 45
-        screen.blit(self.fuente_texto.render("Eje Norte/Sur:", True, (255, 255, 255)), (self.x_panel + 20, y_valores))
-        screen.blit(self.fuente_bold.render(f"{t_ns} seg", True, (0, 255, 0)), (self.x_panel + 220, y_valores))
-
-        screen.blit(self.fuente_texto.render("Eje Este/Oeste:", True, (255, 255, 255)), (self.x_panel + 20, y_valores + 25))
-        screen.blit(self.fuente_bold.render(f"{t_eo} seg", True, (0, 255, 0)), (self.x_panel + 220, y_valores + 25))
+        lbl_resumen = self.fuente_bold.render("MÉTRICAS DE LA RED", True, (229, 192, 123)) # Amarillo/Ámbar
+        screen.blit(lbl_resumen, (self.x_panel + 25, y_offset + 12))
         
-        # Nota explicativa inferior
-        y_nota = y_valores + 70
-        pygame.draw.rect(screen, (30, 35, 45), (self.x_panel + 15, y_nota, self.ancho_panel - 30, 70))
-        nota_l1 = self.fuente_texto.render("Nota: Los tiempos se recalculan", True, (180, 180, 180))
-        nota_l2 = self.fuente_texto.render("de forma inteligente cada 4", True, (180, 180, 180))
-        nota_l3 = self.fuente_texto.render("fases completas del ciclo.", True, (180, 180, 180))
-        screen.blit(nota_l1, (self.x_panel + 22, y_nota + 8))
-        screen.blit(nota_l2, (self.x_panel + 22, y_nota + 26))
-        screen.blit(nota_l3, (self.x_panel + 22, y_nota + 44))
+        lbl_total = self.fuente_texto.render(f"Total Autos: {total_global}", True, (255, 255, 255))
+        screen.blit(lbl_total, (self.x_panel + 25, y_offset + 42))
+        
+        lbl_tiempo = self.fuente_texto.render(f"T. Verde Base: {t_verde_seg}s", True, (255, 255, 255))
+        screen.blit(lbl_tiempo, (self.x_panel + 25, y_offset + 67))
+        
+        lbl_modo = self.fuente_texto.render("Optimización: Activa", True, (98, 114, 164))
+        screen.blit(lbl_modo, (self.x_panel + 25, y_offset + 92))

@@ -19,7 +19,7 @@ pygame.init()
 # Dimensiones optimizadas para la cuadrícula 2x2 visible y movible
 ANCHO_BASE, ALTO_BASE = 1150, 700
 screen = pygame.display.set_mode((ANCHO_BASE, ALTO_BASE), pygame.RESIZABLE)
-pygame.display.set_caption("Simulador Semaforo Inteligente - Red de Intersecciones")
+pygame.display.set_caption("Simulador Semaforo Inteligente")
 clock = pygame.time.Clock()
 
 # Coordenadas maestras de los 4 cruces
@@ -95,8 +95,9 @@ while running:
         elif event.type == pygame.VIDEORESIZE:
             screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # Clic izquierdo
-                interfaz.verificar_click(event.pos)
+            if event.button == 1: # Clic izquierdo
+                # Pasamos los objetos a la función de verificación
+                interfaz.verificar_click(event.pos, historial, cerebro_trafico)
         elif event.type == pygame.KEYDOWN:
             if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
                 if not simulacion_activa:
@@ -188,6 +189,7 @@ while running:
             else: vehiculos.append(Vehiculo("OESTE", tipo="NORMAL", pos_calle=calle_aleatoria))
 
     # 4. ACTUALIZACIÓN Y RENDERIZADO VISUAL
+    screen.fill((24, 24, 24))
     dibujar_mapa(screen)      
 
     if simulacion_activa:
@@ -215,7 +217,13 @@ while running:
         for auto in vehiculos[:]:
             # Pasamos diccionario_tiempos para que el auto sepa cuánto le queda al verde
             auto.actualizar(semaforos_autos, vehiculos, diccionario_tiempos)  
-            if auto.x < -50 or auto.x > 1200 or auto.y < -50 or auto.y > 750: vehiculos.remove(auto)
+            
+            # NUEVO LÍMITE: Si pasa de 850 (entrada al panel de datos), se elimina y registra
+            if auto.x < -50 or auto.x > 850 or auto.y < -50 or auto.y > 750: 
+                # Si el auto iba hacia la derecha y cruzó con éxito, lo registramos
+                if auto.x > 850 and hasattr(auto, 'idx_interseccion'):
+                    historial.registrar_vehiculo(auto.idx_interseccion, auto.cruce)
+                vehiculos.remove(auto)
             
         # 3. Dibujar Semáforos iterando por intersección para asignar el tiempo correcto
         for inter in intersecciones:
@@ -243,8 +251,10 @@ while running:
     for auto in vehiculos: auto.dibujar(screen)
     for sp in semaforos_peatonales: sp.dibujar(screen)
 
+    #dibujar la interfaz de la tabla
+    interfaz.dibujar_tabla(screen, historial, cerebro_trafico)
+
     pygame.display.flip()
     clock.tick(60)
-
 
 pygame.quit()
