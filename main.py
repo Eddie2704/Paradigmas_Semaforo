@@ -19,7 +19,7 @@ pygame.init()
 # Dimensiones optimizadas para la cuadrícula 2x2 visible y movible
 ANCHO_BASE, ALTO_BASE = 1150, 700
 screen = pygame.display.set_mode((ANCHO_BASE, ALTO_BASE), pygame.RESIZABLE)
-pygame.display.set_caption("Simulador Semaforo Inteligente - Red de Intersecciones")
+pygame.display.set_caption("Simulador Semaforo Inteligente")
 clock = pygame.time.Clock()
 
 # Coordenadas maestras de los 4 cruces
@@ -30,22 +30,24 @@ CY = [120, 470]
 # LÓGICA DE POSICIONAMIENTO Y ORIENTACIÓN DE SEMÁFOROS
 semaforos_autos = []
 semaforos_peatonales = []
-intersecciones = []  # <--- Lista estructurada para el nuevo controlador
+intersecciones = [] 
 
+#CONFIGURACIÓN DE SENSORES HARDWARE VIAL (Mapeados desde mapa.py)
+sensores_lazos = {}
 id_cruce = 0
 
 for x in CX:
     for y in CY:
-        # Semáforos Vehiculares: Copiados exactamente con tus orientaciones y posiciones
+        # Semáforos Vehiculares
         s_norte = Semaforo(x + 60, y - 30, "horizontal")
         s_sur   = Semaforo(x - 0,  y + 110, "horizontal")
         s_este  = Semaforo(x - 20, y + 0, "vertical")
         s_oeste = Semaforo(x + 100, y + 60, "vertical")
         
-        # Guardamos en la lista global para los vehículos (compatibilidad)
+        # Guardamos en la lista global para los vehículos
         semaforos_autos.extend([s_norte, s_sur, s_este, s_oeste])
 
-        # Semáforos Peatonales: Esquinas correspondientes
+        # Semáforos Peatonales
         sp1 = SemaforoPeatonal(x - 30, y - 30)
         sp2 = SemaforoPeatonal(x + 120, y - 30)
         sp3 = SemaforoPeatonal(x - 30, y + 115)
@@ -54,12 +56,20 @@ for x in CX:
         # Guardamos en la lista global para los peatones (compatibilidad)
         semaforos_peatonales.extend([sp1, sp2, sp3, sp4])
 
-        # EMPAQUETAMOS EL CRUCE: Asignamos su ID único y sus semáforos
+        #Asignamos su ID único y sus semáforos
         intersecciones.append({
             "id": id_cruce,
             "autos": [s_norte, s_sur, s_este, s_oeste],
             "peatones": [sp1, sp2, sp3, sp4]
         })
+        
+        # Guardar las posiciones exactas de los cuadros grises para las colisiones físicas
+        sensores_lazos[id_cruce] = {
+            "NORTE": pygame.Rect(x + 8, y - 55, 38, 15),
+            "SUR": pygame.Rect(x + 54, y + 140, 38, 15),
+            "OESTE": pygame.Rect(x - 55, y + 54, 15, 38),
+            "ESTE": pygame.Rect(x + 140, y + 8, 15, 38)
+        }
         
         id_cruce += 1
 
@@ -88,7 +98,7 @@ running = True
 while running:
     estimulo_recibido = None
 
-    # 1. CAPTURA DE EVENTOS (Teclado local y redimensión de ventana)
+    # 1. CAPTURA DE EVENTOS
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -148,16 +158,18 @@ while running:
             entorno["colision_activa"] = True
             entorno["zona_bloqueada"] = estimulo_recibido.split("_")[-1]
 
-        #Inyección de flujo vehicular/peatonal ---
+        # --- Inyección pura de flujo vehicular/peatonal (Sin conteo prematuro) ---
         elif estimulo_recibido == "AUTO_NORTE":
             calle_aleatoria = random.choice(CX)
             if modo_peaton: 
-                # Selecciona al azar la calle horizontal (CY) donde cruzará horizontalmente
                 calle_h = random.choice(CY)
                 peatones.append(Peaton("NORTE", pos_calle_v=calle_aleatoria, pos_calle_h=calle_h))
                 modo_peaton = False
-            elif modo_ambulancia: vehiculos.append(Vehiculo("NORTE", tipo="AMBULANCIA", pos_calle=calle_aleatoria)); modo_ambulancia = False
-            else: vehiculos.append(Vehiculo("NORTE", tipo="NORMAL", pos_calle=calle_aleatoria))
+            elif modo_ambulancia: 
+                vehiculos.append(Vehiculo("NORTE", tipo="AMBULANCIA", pos_calle=calle_aleatoria))
+                modo_ambulancia = False
+            else: 
+                vehiculos.append(Vehiculo("NORTE", tipo="NORMAL", pos_calle=calle_aleatoria))
             
         elif estimulo_recibido == "AUTO_SUR":
             calle_aleatoria = random.choice(CX)
@@ -165,18 +177,23 @@ while running:
                 calle_h = random.choice(CY)
                 peatones.append(Peaton("SUR", pos_calle_v=calle_aleatoria, pos_calle_h=calle_h))
                 modo_peaton = False
-            elif modo_ambulancia: vehiculos.append(Vehiculo("SUR", tipo="AMBULANCIA", pos_calle=calle_aleatoria)); modo_ambulancia = False
-            else: vehiculos.append(Vehiculo("SUR", tipo="NORMAL", pos_calle=calle_aleatoria))
+            elif modo_ambulancia: 
+                vehiculos.append(Vehiculo("SUR", tipo="AMBULANCIA", pos_calle=calle_aleatoria))
+                modo_ambulancia = False
+            else: 
+                vehiculos.append(Vehiculo("SUR", tipo="NORMAL", pos_calle=calle_aleatoria))
             
         elif estimulo_recibido == "AUTO_ESTE":
             calle_aleatoria = random.choice(CY)
             if modo_peaton: 
-                # Selecciona al azar la calle vertical (CX) donde cruzará verticalmente
                 calle_v = random.choice(CX)
                 peatones.append(Peaton("ESTE", pos_calle_v=calle_v, pos_calle_h=calle_aleatoria))
                 modo_peaton = False
-            elif modo_ambulancia: vehiculos.append(Vehiculo("ESTE", tipo="AMBULANCIA", pos_calle=calle_aleatoria)); modo_ambulancia = False
-            else: vehiculos.append(Vehiculo("ESTE", tipo="NORMAL", pos_calle=calle_aleatoria))
+            elif modo_ambulancia: 
+                vehiculos.append(Vehiculo("ESTE", tipo="AMBULANCIA", pos_calle=calle_aleatoria))
+                modo_ambulancia = False
+            else: 
+                vehiculos.append(Vehiculo("ESTE", tipo="NORMAL", pos_calle=calle_aleatoria))
             
         elif estimulo_recibido == "AUTO_OESTE":
             calle_aleatoria = random.choice(CY)
@@ -184,23 +201,26 @@ while running:
                 calle_v = random.choice(CX)
                 peatones.append(Peaton("OESTE", pos_calle_v=calle_v, pos_calle_h=calle_aleatoria))
                 modo_peaton = False
-            elif modo_ambulancia: vehiculos.append(Vehiculo("OESTE", tipo="AMBULANCIA", pos_calle=calle_aleatoria)); modo_ambulancia = False
-            else: vehiculos.append(Vehiculo("OESTE", tipo="NORMAL", pos_calle=calle_aleatoria))
+            elif modo_ambulancia: 
+                vehiculos.append(Vehiculo("OESTE", tipo="AMBULANCIA", pos_calle=calle_aleatoria))
+                modo_ambulancia = False
+            else: 
+                vehiculos.append(Vehiculo("OESTE", tipo="NORMAL", pos_calle=calle_aleatoria))
 
     # 4. ACTUALIZACIÓN Y RENDERIZADO VISUAL
-    dibujar_mapa(screen)      
+    dibujar_mapa(screen)
+    if not simulacion_activa:
+        diccionario_tiempos = {}      
 
     if simulacion_activa:
         # 1. Ejecutar la inteligencia del controlador.
-        # Ahora pasamos 'intersecciones' en lugar de las listas separadas.
-        # Devuelve un diccionario: { id_cruce: (fase, tiempo_restante), ... }
         diccionario_tiempos = cerebro_trafico.procesar_inteligencia(intersecciones, vehiculos, entorno)
         
-        # 2. Actualizar peatones y vehículos usando las listas globales (para que detecten todos los semáforos)
+        # 2. Actualizar peatones
         for humano in peatones[:]:
             humano.actualizar(semaforos_peatonales)
             
-            # Condición de salida: desaparecen justo al pisar la acera del otro lado del cruce
+            # Condición de salida
             desaparecer = False
             if humano.cruce == "NORTE" or humano.cruce == "SUR":
                 if humano.x > humano.pos_calle_v + 120:
@@ -212,15 +232,32 @@ while running:
             if desaparecer:
                 peatones.remove(humano)
             
+        # 3. Actualizar vehículos y procesar sensores físicos sobre el mapa
         for auto in vehiculos[:]:
-            # Pasamos diccionario_tiempos para que el auto sepa cuánto le queda al verde
             auto.actualizar(semaforos_autos, vehiculos, diccionario_tiempos)  
-            if auto.x < -50 or auto.x > 1200 or auto.y < -50 or auto.y > 750: vehiculos.remove(auto)
             
-        # 3. Dibujar Semáforos iterando por intersección para asignar el tiempo correcto
+            # --- DETECCIÓN FÍSICA EN CUADROS GRISES ---
+            if not hasattr(auto, 'cruces_contados'):
+                auto.cruces_contados = []
+                
+            # Caja de colisión virtual del auto basada en su tamaño y coordenadas actuales
+            auto_rect = pygame.Rect(auto.x, auto.y, 30, 20) 
+            
+            # Comprobar si el auto está rodando sobre algún sensor de inducción
+            for id_int, direcciones in sensores_lazos.items():
+                for direccion, lazo_rect in direcciones.items():
+                    if auto_rect.colliderect(lazo_rect) and (id_int, direccion) not in auto.cruces_contados:
+                        historial.registrar_vehiculo(id_int, direccion)
+                        auto.cruces_contados.append((id_int, direccion))
+                        print(f"[SENSOR] Vehículo detectado físicamente en Cruce {id_int + 1} ({direccion})")
+            # ------------------------------------------
+            
+            if auto.x < -50 or auto.x > 1200 or auto.y < -50 or auto.y > 750: 
+                vehiculos.remove(auto)
+            
+        # 4. Dibujar Semáforos iterando por intersección para asignar el tiempo correcto
         for inter in intersecciones:
             id_int = inter["id"]
-            # Extraemos la fase y el tiempo restante de esta intersección específica
             fase, tiempo_fase = diccionario_tiempos.get(id_int, (0, 0))
             tiempo_entero = int(max(0, tiempo_fase))
             
@@ -242,9 +279,8 @@ while running:
     for humano in peatones: humano.dibujar(screen)
     for auto in vehiculos: auto.dibujar(screen)
     for sp in semaforos_peatonales: sp.dibujar(screen)
-
+    interfaz.dibujar_interfaz(screen, historial, cerebro_trafico, diccionario_tiempos)
     pygame.display.flip()
     clock.tick(60)
-
 
 pygame.quit()
