@@ -197,3 +197,26 @@ class Vehiculo:
             else:
                 pygame.draw.rect(screen, color_l1, (self.x, self.y + 2, 4, 6))
                 pygame.draw.rect(screen, color_l2, (self.x, self.y + self.alto - 8, 4, 6))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
